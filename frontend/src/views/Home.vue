@@ -1,58 +1,65 @@
 <template>
-  <div class="home-container">
-    <el-header class="header">
-      <div class="logo">✈️ AI旅行规划助手</div>
-      <div class="nav">
-        <el-button type="text" @click="$router.push('/')">首页</el-button>
-        <el-button type="text" @click="$router.push('/trips')">我的行程</el-button>
-        <el-dropdown @command="handleCommand">
-          <span class="user-info">
-            <el-icon><User /></el-icon>
-            {{ authStore.user?.username }}
-          </span>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-    </el-header>
-    
+  <AppLayout>
     <div class="main-content">
       <div class="hero-section">
         <h1>让AI为您规划完美旅程</h1>
         <p>告诉我们您想去哪里，AI助手将为您定制个性化旅行方案</p>
       </div>
-      
+
       <el-card class="planner-card">
         <el-form :model="tripForm" label-position="top">
           <el-row :gutter="20">
             <el-col :span="12">
               <el-form-item label="目的地">
-                <el-input v-model="tripForm.destination" placeholder="例如：北京、东京、巴黎..." size="large" />
+                <el-input
+                  v-model="tripForm.destination"
+                  placeholder="例如：北京、东京、巴黎..."
+                  size="large"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="12">
               <el-form-item label="行程名称">
-                <el-input v-model="tripForm.title" placeholder="给这次旅行起个名字" size="large" />
+                <el-input
+                  v-model="tripForm.title"
+                  placeholder="给这次旅行起个名字"
+                  size="large"
+                />
               </el-form-item>
             </el-col>
           </el-row>
           <el-row :gutter="20">
             <el-col :span="8">
               <el-form-item label="出发日期">
-                <el-date-picker v-model="tripForm.startDate" type="date" placeholder="选择日期" size="large" style="width: 100%" />
+                <el-date-picker
+                  v-model="tripForm.startDate"
+                  type="date"
+                  placeholder="选择日期"
+                  size="large"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="8">
               <el-form-item label="返回日期">
-                <el-date-picker v-model="tripForm.endDate" type="date" placeholder="选择日期" size="large" style="width: 100%" />
+                <el-date-picker
+                  v-model="tripForm.endDate"
+                  type="date"
+                  placeholder="选择日期"
+                  size="large"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
             <el-col :span="8">
               <el-form-item label="出行人数">
-                <el-input-number v-model="tripForm.travelers" :min="1" :max="10" size="large" style="width: 100%" />
+                <el-input-number
+                  v-model="tripForm.travelers"
+                  :min="1"
+                  :max="10"
+                  size="large"
+                  style="width: 100%"
+                />
               </el-form-item>
             </el-col>
           </el-row>
@@ -60,32 +67,50 @@
             <el-slider v-model="budgetRange" range :min="500" :max="50000" :step="500" />
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" size="large" style="width: 200px" :loading="creating" @click="startPlanning">
+            <el-button
+              type="primary"
+              size="large"
+              style="width: 200px"
+              :loading="creating"
+              @click="startPlanning"
+            >
               开始规划
               <el-icon><Promotion /></el-icon>
             </el-button>
           </el-form-item>
         </el-form>
       </el-card>
-      
-      <div v-if="tripsStore.trips.length > 0" class="recent-trips">
-        <h2>最近行程</h2>
+
+      <div v-if="tripsStore.loading" class="section-loading">
+        <el-skeleton :rows="2" animated />
+      </div>
+
+      <div v-else-if="tripsStore.trips.length > 0" class="recent-trips">
+        <div class="section-header">
+          <h2>最近行程</h2>
+          <el-button text type="primary" @click="$router.push('/trips')">
+            查看全部
+            <el-icon><ArrowRight /></el-icon>
+          </el-button>
+        </div>
         <el-row :gutter="20">
           <el-col :span="8" v-for="trip in tripsStore.trips.slice(0, 3)" :key="trip.id">
-            <el-card class="trip-card" shadow="hover" @click="$router.push(`/chat/${trip.id}`)">
+            <el-card class="trip-card" shadow="hover" @click="goToChat(trip.id)">
               <h3>{{ trip.title }}</h3>
               <p class="destination">📍 {{ trip.destination }}</p>
-              <p class="status">
-                <el-tag :type="trip.status === 'planned' ? 'success' : 'warning'">
+              <p class="travelers" v-if="trip.travelers">👥 {{ trip.travelers }} 人</p>
+              <div class="card-footer">
+                <el-tag :type="trip.status === 'planned' ? 'success' : 'warning'" size="small">
                   {{ trip.status === 'planned' ? '已规划' : '规划中' }}
                 </el-tag>
-              </p>
+                <span class="cta">继续对话 →</span>
+              </div>
             </el-card>
           </el-col>
         </el-row>
       </div>
     </div>
-  </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
@@ -94,6 +119,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useTripsStore } from '@/stores/trips'
 import { ElMessage } from 'element-plus'
+import AppLayout from '@/components/AppLayout.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -104,9 +130,9 @@ const budgetRange = ref([2000, 10000])
 const tripForm = reactive({
   title: '',
   destination: '',
-  startDate: null,
-  endDate: null,
-  travelers: 2
+  startDate: null as string | null,
+  endDate: null as string | null,
+  travelers: 2,
 })
 
 onMounted(() => {
@@ -114,11 +140,8 @@ onMounted(() => {
   tripsStore.fetchTrips()
 })
 
-function handleCommand(command: string) {
-  if (command === 'logout') {
-    authStore.logout()
-    router.push('/login')
-  }
+function goToChat(tripId: number) {
+  router.push(`/chat/${tripId}`)
 }
 
 async function startPlanning() {
@@ -129,7 +152,7 @@ async function startPlanning() {
   if (!tripForm.title) {
     tripForm.title = `${tripForm.destination}之旅`
   }
-  
+
   creating.value = true
   try {
     const trip = await tripsStore.createTrip({
@@ -138,12 +161,12 @@ async function startPlanning() {
       start_date: tripForm.startDate,
       end_date: tripForm.endDate,
       travelers: tripForm.travelers,
-      budget: { min: budgetRange.value[0], max: budgetRange.value[1] }
+      budget: { min: budgetRange.value[0], max: budgetRange.value[1] },
     })
-    ElMessage.success('行程创建成功')
+    ElMessage.success('行程已创建')
     router.push(`/chat/${trip.id}?destination=${encodeURIComponent(tripForm.destination)}`)
-  } catch (e) {
-    console.error(e)
+  } catch {
+    // 错误已在 api 拦截器中处理
   } finally {
     creating.value = false
   }
@@ -151,70 +174,96 @@ async function startPlanning() {
 </script>
 
 <style scoped>
-.home-container {
-  min-height: 100vh;
-  background: #f5f7fa;
-}
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  padding: 0 40px;
-}
-.logo {
-  font-size: 20px;
-  font-weight: bold;
-  color: #667eea;
-}
-.nav {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  color: #666;
-}
 .main-content {
   max-width: 1000px;
   margin: 0 auto;
   padding: 40px 20px;
 }
+
 .hero-section {
   text-align: center;
   margin-bottom: 40px;
 }
+
 .hero-section h1 {
   font-size: 42px;
-  color: #333;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin-bottom: 16px;
 }
+
 .hero-section p {
   font-size: 18px;
   color: #666;
 }
+
 .planner-card {
   margin-bottom: 40px;
+  border-radius: 12px;
 }
-.recent-trips h2 {
+
+.planner-card :deep(.el-card__body) {
+  padding: 30px;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 20px;
-  color: #333;
 }
+
+.section-header h2 {
+  color: #333;
+  margin: 0;
+}
+
+.section-loading {
+  padding: 40px 0;
+}
+
+.recent-trips {
+  margin-top: 10px;
+}
+
 .trip-card {
   cursor: pointer;
-  margin-bottom: 20px;
+  border-radius: 12px;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
+
+.trip-card:hover {
+  transform: translateY(-4px);
+}
+
 .trip-card h3 {
   margin: 0 0 10px 0;
   color: #333;
+  font-size: 18px;
 }
+
 .destination {
   color: #666;
-  margin: 0 0 10px 0;
+  margin: 0 0 6px 0;
+}
+
+.travelers {
+  color: #999;
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cta {
+  color: #667eea;
+  font-size: 13px;
+  font-weight: 500;
 }
 </style>

@@ -1,0 +1,17 @@
+# ⚠️ 每次开始写代码前，先拉最新的！避免冲突！
+git pull
+
+# --------- 你开始改代码，改完了 ---------
+
+# 第 1 步：看看改了啥（好习惯，别乱加东西）
+git status
+
+# 第 2 步：把改动放进暂存区
+git add .
+# 或者只加某个文件：git add frontend/src/views/Chat.vue
+
+# 第 3 步：提交到【本地仓库】
+git commit -m "fix: 修复 Chat.vue 流式响应不显示的问题"
+
+# 第 4 步：推送到【GitHub】← 这一步才是真的传上去！
+git push

@@ -1,106 +1,185 @@
 <template>
-  <div class="chat-container">
-    <el-header class="header">
-      <div class="header-left">
-        <el-button text @click="$router.push('/')">
-          <el-icon><ArrowLeft /></el-icon>
-          返回
+  <AppLayout :showBack="true">
+    <div class="chat-wrapper">
+      <div class="chat-panel">
+        <div class="chat-messages" ref="messagesRef">
+          <div v-if="chatStore.messages.length === 0" class="welcome">
+            <el-empty description="开始对话，让AI帮您规划旅行">
+              <template #image>
+                <div style="font-size: 64px; margin-bottom: 10px;">🤖</div>
+              </template>
+              <div class="suggestions">
+                <el-button
+                  v-for="s in suggestions"
+                  :key="s"
+                  size="small"
+                  round
+                  @click="sendSuggestion(s)"
+                >
+                  {{ s }}
+                </el-button>
+              </div>
+            </el-empty>
+          </div>
+
+          <div
+            v-for="msg in chatStore.messages"
+            :key="msg.id"
+            class="message"
+            :class="msg.role"
+          >
+            <div class="avatar">
+              <el-avatar v-if="msg.role === 'user'" :size="36" icon="UserFilled" />
+              <span v-else class="bot-avatar">🤖</span>
+            </div>
+            <div class="msg-content">
+              <div class="bubble" v-html="formatMessage(msg.content)"></div>
+              <div class="time">{{ formatTime(msg.timestamp) }}</div>
+            </div>
+          </div>
+
+          <div v-if="chatStore.isStreaming" class="message assistant">
+            <div class="avatar">
+              <span class="bot-avatar">🤖</span>
+            </div>
+            <div class="msg-content">
+              <div class="bubble typing-dots">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <el-input
+            v-model="inputMessage"
+            type="textarea"
+            :rows="2"
+            placeholder="输入您的问题，AI 将为您规划旅行..."
+            :disabled="chatStore.isStreaming"
+            @keydown.enter.exact.prevent="sendMessage"
+            resize="none"
+            class="chat-textarea"
+          />
+          <el-button
+            type="primary"
+            :icon="Promotion"
+            circle
+            :loading="chatStore.isStreaming"
+            :disabled="!inputMessage.trim()"
+            @click="sendMessage"
+            class="send-btn"
+          />
+        </div>
+      </div>
+
+      <div class="map-panel" v-if="showMap">
+        <div class="map-header">
+          <span>📍 {{ destination || '地图视图' }}</span>
+          <el-button text size="small" @click="showMap = false">
+            <el-icon><Close /></el-icon>
+          </el-button>
+        </div>
+        <MapView
+          ref="mapRef"
+          :center="mapCenter"
+          :zoom="12"
+          :markers="mapMarkers"
+        />
+      </div>
+
+      <div v-else class="map-toggle" @click="showMap = true">
+        <el-button type="primary" circle>
+          <el-icon><MapLocation /></el-icon>
         </el-button>
-        <span class="title">💬 AI旅行助手</span>
-        <span v-if="destination" class="destination">📍 {{ destination }}</span>
-      </div>
-    </el-header>
-    
-    <div class="chat-messages" ref="messagesRef">
-      <div v-if="chatStore.messages.length === 0" class="welcome">
-        <el-empty description="开始对话，让AI帮您规划旅行">
-          <template #image>
-            <div style="font-size: 60px">🤖</div>
-          </template>
-          <div class="suggestions">
-            <el-button v-for="s in suggestions" :key="s" size="small" @click="sendSuggestion(s)">
-              {{ s }}
-            </el-button>
-          </div>
-        </el-empty>
-      </div>
-      
-      <div v-for="msg in chatStore.messages" :key="msg.id" class="message" :class="msg.role">
-        <div class="avatar">
-          <el-icon v-if="msg.role === 'user'"><User /></el-icon>
-          <span v-else>🤖</span>
-        </div>
-        <div class="content">
-          <div class="bubble" v-html="formatMessage(msg.content)"></div>
-          <div class="time">{{ formatTime(msg.timestamp) }}</div>
-        </div>
-      </div>
-      
-      <div v-if="chatStore.isStreaming" class="message assistant">
-        <div class="avatar">🤖</div>
-        <div class="content">
-          <div class="bubble">
-            <span class="typing"><span>.</span><span>.</span><span>.</span></span>
-          </div>
-        </div>
+        <span>查看地图</span>
       </div>
     </div>
-    
-    <div class="chat-input">
-      <el-input
-        v-model="inputMessage"
-        type="textarea"
-        :rows="2"
-        placeholder="输入您的问题..."
-        :disabled="chatStore.isStreaming"
-        @keydown.enter.exact.prevent="sendMessage"
-        resize="none"
-      />
-      <el-button type="primary" :icon="Promotion" circle :loading="chatStore.isStreaming" @click="sendMessage" />
-    </div>
-  </div>
+  </AppLayout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, nextTick, watch, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
-import { useTripsStore } from '@/stores/trips'
+import AppLayout from '@/components/AppLayout.vue'
+import MapView from '@/components/MapView.vue'
 import { Promotion } from '@element-plus/icons-vue'
 
 const route = useRoute()
-const router = useRouter()
 const chatStore = useChatStore()
-const tripsStore = useTripsStore()
 
 const inputMessage = ref('')
 const messagesRef = ref<HTMLElement>()
+const mapRef = ref<InstanceType<typeof MapView>>()
+const showMap = ref(false)
 const tripId = route.params.tripId as string | undefined
 const destination = (route.query.destination as string) || ''
 
 const suggestions = [
   '帮我规划一个3天的行程',
-  '那里天气怎么样？',
-  '有什么推荐的景点？',
-  '交通怎么安排比较好？'
+  '推荐几个必去的景点',
+  '怎么安排交通比较好？',
+  '推荐当地美食和餐厅',
+  '帮我做一份预算规划',
 ]
+
+const cityCoordinates: Record<string, [number, number]> = {
+  '北京': [39.9042, 116.4074],
+  '上海': [31.2304, 121.4737],
+  '广州': [23.1291, 113.2644],
+  '深圳': [22.5431, 114.0579],
+  '杭州': [30.2741, 120.1551],
+  '成都': [30.5728, 104.0668],
+  '重庆': [29.4316, 106.9123],
+  '西安': [34.2608, 108.9398],
+  '南京': [32.0603, 118.7969],
+  '武汉': [30.5928, 114.3055],
+  '长沙': [28.2282, 112.9388],
+  '厦门': [24.4798, 118.0894],
+  '青岛': [36.0671, 120.3826],
+  '大连': [38.9140, 121.6147],
+  '三亚': [18.2528, 109.5120],
+  '昆明': [25.0389, 102.7183],
+  '哈尔滨': [45.8038, 126.5350],
+  '拉萨': [29.6500, 91.1000],
+  '东京': [35.6762, 139.6503],
+  '巴黎': [48.8566, 2.3522],
+  '曼谷': [13.7563, 100.5018],
+  '新加坡': [1.3521, 103.8198],
+}
+
+const mapCenter = computed<[number, number]>(() => {
+  for (const [city, coords] of Object.entries(cityCoordinates)) {
+    if (destination.includes(city)) return coords
+  }
+  return [39.9042, 116.4074]
+})
+
+const mapMarkers = computed(() => {
+  return [{ name: destination || '目的地', lat: mapCenter.value[0], lng: mapCenter.value[1] }]
+})
 
 onMounted(() => {
   chatStore.clearMessages()
   if (destination) {
+    showMap.value = true
     setTimeout(() => {
-      chatStore.addMessage('assistant', `您好！我是您的AI旅行助手。我来帮您规划${destination}的旅程。您有多少天时间？有什么特别想去的地方或者偏好吗？`)
+      chatStore.addMessage(
+        'assistant',
+        `您好！我是您的AI旅行助手 🤖\n\n我来帮您规划 **${destination}** 的旅程。告诉我您的需求：\n\n- 🗓 计划玩几天？\n- 💰 预算大概多少？\n- 🎯 有什么特别想去的地方或偏好吗？`
+      )
     }, 500)
   }
 })
 
-watch(() => chatStore.messages, () => {
+watch(() => chatStore.messages.length, () => {
   nextTick(() => {
     if (messagesRef.value) {
       messagesRef.value.scrollTop = messagesRef.value.scrollHeight
     }
   })
-}, { deep: true })
+})
 
 function sendSuggestion(text: string) {
   inputMessage.value = text
@@ -109,10 +188,10 @@ function sendSuggestion(text: string) {
 
 async function sendMessage() {
   if (!inputMessage.value.trim() || chatStore.isStreaming) return
-  
+
   const message = inputMessage.value
   inputMessage.value = ''
-  
+
   await chatStore.startStream(message, tripId ? Number(tripId) : null, destination)
 }
 
@@ -121,122 +200,223 @@ function formatTime(timestamp: Date) {
 }
 
 function formatMessage(content: string) {
-  return content.replace(/\n/g, '<br>')
+  return content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.*$)/gm, '<h4>$1</h4>')
+    .replace(/^## (.*$)/gm, '<h3>$1</h3>')
+    .replace(/^# (.*$)/gm, '<h2>$1</h2>')
 }
 </script>
 
 <style scoped>
-.chat-container {
+.chat-wrapper {
+  display: flex;
+  height: calc(100vh - 64px);
+  position: relative;
+}
+
+.chat-panel {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-width: 0;
   background: #f5f7fa;
 }
-.header {
-  display: flex;
-  align-items: center;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  padding: 0 20px;
-  height: 60px;
-}
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-.title {
-  font-size: 18px;
-  font-weight: bold;
-  color: #333;
-}
-.destination {
-  color: #667eea;
-}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
 }
+
 .welcome {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100%;
 }
+
 .suggestions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
   justify-content: center;
-  margin-top: 20px;
+  margin-top: 16px;
 }
+
 .message {
   display: flex;
   gap: 12px;
   margin-bottom: 20px;
+  max-width: 80%;
 }
+
 .message.user {
+  margin-left: auto;
   flex-direction: row-reverse;
 }
+
+.message.assistant {
+  margin-right: auto;
+}
+
 .avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #667eea;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
-  font-size: 20px;
 }
-.message.user .avatar {
-  background: #67c23a;
+
+.bot-avatar {
+  font-size: 28px;
+  line-height: 36px;
 }
-.content {
-  max-width: 70%;
+
+.msg-content {
+  display: flex;
+  flex-direction: column;
 }
+
+.message.user .msg-content {
+  align-items: flex-end;
+}
+
 .bubble {
   padding: 12px 16px;
-  border-radius: 12px;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-radius: 16px;
   line-height: 1.6;
+  font-size: 14px;
   word-break: break-word;
 }
-.message.user .bubble {
-  background: #667eea;
-  color: white;
+
+.message.assistant .bubble {
+  background: white;
+  color: #333;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
+
+.message.user .bubble {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.bubble :deep(h2) {
+  font-size: 18px;
+  margin: 12px 0 8px 0;
+  color: #667eea;
+}
+
+.bubble :deep(h3) {
+  font-size: 16px;
+  margin: 10px 0 6px 0;
+  color: #555;
+}
+
+.bubble :deep(h4) {
+  font-size: 15px;
+  margin: 8px 0 4px 0;
+  color: #666;
+}
+
+.bubble :deep(strong) {
+  color: #667eea;
+}
+
+.message.user .bubble :deep(strong) {
+  color: #fff;
+}
+
 .time {
   font-size: 12px;
-  color: #999;
+  color: #bbb;
   margin-top: 4px;
-  text-align: right;
 }
-.message.user .time {
-  text-align: left;
-}
-.typing span {
-  animation: blink 1.4s infinite;
-}
-.typing span:nth-child(2) { animation-delay: 0.2s; }
-.typing span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0; }
-  40% { opacity: 1; }
-}
-.chat-input {
+
+.typing-dots {
   display: flex;
-  gap: 10px;
-  padding: 20px;
+  gap: 4px;
+  padding: 16px 20px;
+}
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  background: #667eea;
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-8px); opacity: 1; }
+}
+
+.chat-input-area {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
   background: white;
   border-top: 1px solid #eee;
   align-items: flex-end;
 }
-.chat-input :deep(.el-textarea__inner) {
-  border-radius: 20px;
-  padding: 12px 20px;
+
+.chat-textarea :deep(.el-textarea__inner) {
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  resize: none;
+}
+
+.send-btn {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+}
+
+.map-panel {
+  width: 380px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #eee;
+  background: white;
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+.map-panel .map-wrapper {
+  flex: 1;
+}
+
+.map-toggle {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  z-index: 50;
+}
+
+.map-toggle span {
+  font-size: 12px;
+  color: #667eea;
+  font-weight: 500;
 }
 </style>
