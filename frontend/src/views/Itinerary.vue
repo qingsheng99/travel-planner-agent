@@ -93,6 +93,10 @@
   </AppLayout>
 </template>
 
+<!--
+  行程详情页 - 展示单个行程的完整信息
+  包括基本行程信息、AI 规划的行程安排、地图视图，支持导出 Markdown 和复制内容
+-->
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
@@ -102,6 +106,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import MapView from '@/components/MapView.vue'
 import dayjs from 'dayjs'
 
+/** 行程数据接口定义 */
 interface Trip {
   id: number
   title: string
@@ -116,10 +121,15 @@ interface Trip {
 
 const route = useRoute()
 const tripsStore = useTripsStore()
+
+// 页面加载状态
 const loading = ref(true)
+// 是否加载失败
 const loadError = ref(false)
+// 当前行程数据
 const trip = ref<Trip | null>(null)
 
+// 城市坐标映射表，用于在地图上定位目的地
 const cityCoordinates: Record<string, [number, number]> = {
   '北京': [39.9042, 116.4074], '上海': [31.2304, 121.4737],
   '广州': [23.1291, 113.2644], '深圳': [22.5431, 114.0579],
@@ -134,20 +144,23 @@ const cityCoordinates: Record<string, [number, number]> = {
   '曼谷': [13.7563, 100.5018], '新加坡': [1.3521, 103.8198],
 }
 
+/** 根据目的地名称自动匹配地图中心坐标 */
 const mapCenter = computed<[number, number]>(() => {
   if (!trip.value) return [39.9042, 116.4074]
   for (const [city, coords] of Object.entries(cityCoordinates)) {
     if (trip.value.destination.includes(city)) return coords
   }
-  return [39.9042, 116.4074]
+  return [39.9042, 116.4074] // 默认北京
 })
 
+/** 地图标记点，标记目的地位置 */
 const mapMarkers = computed(() => {
   return trip.value
     ? [{ name: trip.value.destination, lat: mapCenter.value[0], lng: mapCenter.value[1] }]
     : []
 })
 
+/** 加载行程数据 */
 async function loadTrip() {
   loading.value = true
   loadError.value = false
@@ -160,26 +173,30 @@ async function loadTrip() {
   }
 }
 
+/** 页面加载时获取行程数据 */
 onMounted(() => {
   loadTrip()
 })
 
+/** 格式化日期为 YYYY-MM-DD 格式 */
 function formatDate(date: string) {
   return dayjs(date).format('YYYY-MM-DD')
 }
 
+/** 将行程内容中的 Markdown 文本转换为安全的 HTML 以支持富文本展示 */
 function formatItinerary(content: string) {
   return content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+    .replace(/&/g, '&amp;')           // 转义 &
+    .replace(/</g, '&lt;')            // 转义 <
+    .replace(/>/g, '&gt;')            // 转义 >
+    .replace(/\n/g, '<br>')           // 换行转 <br>
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **加粗**
+    .replace(/^### (.*$)/gm, '<h3>$1</h3>')             // ### 三级标题
+    .replace(/^## (.*$)/gm, '<h2>$1</h2>')              // ## 二级标题
+    .replace(/^# (.*$)/gm, '<h1>$1</h1>')               // # 一级标题
 }
 
+/** 导出行程为 Markdown 文件并下载 */
 function handleExport() {
   if (!trip.value?.itinerary?.content) return
   const content = `# ${trip.value.title}\n\n目的地：${trip.value.destination}\n\n${trip.value.itinerary.content}`
@@ -193,6 +210,7 @@ function handleExport() {
   ElMessage.success('行程已导出')
 }
 
+/** 复制行程内容到剪贴板 */
 async function handleCopyContent() {
   if (!trip.value?.itinerary?.content) return
   try {

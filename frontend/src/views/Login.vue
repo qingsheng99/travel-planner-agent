@@ -25,6 +25,10 @@
   </div>
 </template>
 
+<!--
+  登录页面 - 用户登录入口
+  提供邮箱和密码登录表单，表单校验通过后调用 authStore 进行登录
+-->
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
@@ -34,19 +38,25 @@ import type { FormInstance } from 'element-plus'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+// 表单实例引用，用于调用表单校验方法
 const formRef = ref<FormInstance>()
+// 登录按钮加载状态
 const loading = ref(false)
 
+// 登录表单数据模型
 const loginForm = reactive({
   email: '',
   password: ''
 })
 
+// 表单校验规则：邮箱必填且格式正确，密码必填且不少于6位
 const rules = {
   email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }, { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }, { min: 6, message: '密码至少6位', trigger: 'blur' }]
 }
 
+/** 处理登录：校验表单、调用登录接口、成功后跳转到首页 */
 async function handleLogin() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return

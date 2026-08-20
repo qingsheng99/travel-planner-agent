@@ -31,6 +31,10 @@
   </div>
 </template>
 
+<!--
+  注册页面 - 用户注册入口
+  提供邮箱、用户名、密码和确认密码表单，包含自定义密码一致性校验
+-->
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
@@ -40,9 +44,13 @@ import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+// 表单实例引用，用于调用表单校验方法
 const formRef = ref<FormInstance>()
+// 注册按钮加载状态
 const loading = ref(false)
 
+// 注册表单数据模型
 const registerForm = reactive({
   email: '',
   username: '',
@@ -50,6 +58,7 @@ const registerForm = reactive({
   confirmPassword: ''
 })
 
+/** 自定义校验函数：确认密码必须与密码一致 */
 const validateConfirmPassword = (_rule: any, value: string, callback: (err?: Error) => void) => {
   if (value !== registerForm.password) {
     callback(new Error('两次输入密码不一致'))
@@ -58,6 +67,7 @@ const validateConfirmPassword = (_rule: any, value: string, callback: (err?: Err
   }
 }
 
+// 表单校验规则：邮箱、用户名、密码、确认密码的校验规则
 const rules: FormRules = {
   email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }, { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }],
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }, { min: 3, message: '用户名至少3位', trigger: 'blur' }],
@@ -65,6 +75,7 @@ const rules: FormRules = {
   confirmPassword: [{ required: true, validator: validateConfirmPassword, trigger: 'blur' }]
 }
 
+/** 处理注册：校验表单、调用注册接口、成功后跳转到登录页 */
 async function handleRegister() {
   const valid = await formRef.value?.validate().catch(() => false)
   if (!valid) return

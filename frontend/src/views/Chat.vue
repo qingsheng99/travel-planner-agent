@@ -98,6 +98,10 @@
   </AppLayout>
 </template>
 
+<!--
+  聊天页面 - 与 AI 助手对话，规划旅行行程
+  支持流式对话、快捷建议、地图侧边栏视图
+-->
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
@@ -109,13 +113,19 @@ import { Promotion } from '@element-plus/icons-vue'
 const route = useRoute()
 const chatStore = useChatStore()
 
+// 用户输入的消息内容
 const inputMessage = ref('')
+// 消息列表容器的 DOM 引用，用于自动滚动到底部
 const messagesRef = ref<HTMLElement>()
+// 地图组件的实例引用
 const mapRef = ref<InstanceType<typeof MapView>>()
+// 是否显示地图侧边栏
 const showMap = ref(false)
+// 从路由参数中获取行程 ID 和目的地名称
 const tripId = route.params.tripId as string | undefined
 const destination = (route.query.destination as string) || ''
 
+// 快捷建议列表，用户点击即可发送
 const suggestions = [
   '帮我规划一个3天的行程',
   '推荐几个必去的景点',
@@ -124,6 +134,7 @@ const suggestions = [
   '帮我做一份预算规划',
 ]
 
+// 城市坐标映射表，用于在地图上定位目的地
 const cityCoordinates: Record<string, [number, number]> = {
   '北京': [39.9042, 116.4074],
   '上海': [31.2304, 121.4737],
@@ -149,17 +160,20 @@ const cityCoordinates: Record<string, [number, number]> = {
   '新加坡': [1.3521, 103.8198],
 }
 
+/** 根据目的地名称自动匹配地图中心坐标 */
 const mapCenter = computed<[number, number]>(() => {
   for (const [city, coords] of Object.entries(cityCoordinates)) {
     if (destination.includes(city)) return coords
   }
-  return [39.9042, 116.4074]
+  return [39.9042, 116.4074] // 默认北京
 })
 
+/** 地图标记点，标记目的地位置 */
 const mapMarkers = computed(() => {
   return [{ name: destination || '目的地', lat: mapCenter.value[0], lng: mapCenter.value[1] }]
 })
 
+/** 页面加载时清空旧消息，如果带有目的地参数则自动发一条问候消息 */
 onMounted(() => {
   chatStore.clearMessages()
   if (destination) {
@@ -173,6 +187,7 @@ onMounted(() => {
   }
 })
 
+/** 监听消息数量变化，新消息出现时自动滚动到底部 */
 watch(() => chatStore.messages.length, () => {
   nextTick(() => {
     if (messagesRef.value) {
@@ -181,11 +196,13 @@ watch(() => chatStore.messages.length, () => {
   })
 })
 
+/** 点击快捷建议：将建议文本填入输入框并发送 */
 function sendSuggestion(text: string) {
   inputMessage.value = text
   sendMessage()
 }
 
+/** 发送消息：调用 chatStore 的流式接口发送消息 */
 async function sendMessage() {
   if (!inputMessage.value.trim() || chatStore.isStreaming) return
 
@@ -195,20 +212,22 @@ async function sendMessage() {
   await chatStore.startStream(message, tripId ? Number(tripId) : null, destination)
 }
 
+/** 格式化时间戳为 HH:mm 格式 */
 function formatTime(timestamp: Date) {
   return new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
+/** 格式化消息内容：将 Markdown 风格的文本转换为安全的 HTML */
 function formatMessage(content: string) {
   return content
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>')
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^### (.*$)/gm, '<h4>$1</h4>')
-    .replace(/^## (.*$)/gm, '<h3>$1</h3>')
-    .replace(/^# (.*$)/gm, '<h2>$1</h2>')
+    .replace(/&/g, '&amp;')           // 转义 &
+    .replace(/</g, '&lt;')            // 转义 <
+    .replace(/>/g, '&gt;')            // 转义 >
+    .replace(/\n/g, '<br>')           // 换行转 <br>
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // **加粗**
+    .replace(/^### (.*$)/gm, '<h4>$1</h4>')             // ### 四级标题
+    .replace(/^## (.*$)/gm, '<h3>$1</h3>')              // ## 三级标题
+    .replace(/^# (.*$)/gm, '<h2>$1</h2>')               // # 二级标题
 }
 </script>
 

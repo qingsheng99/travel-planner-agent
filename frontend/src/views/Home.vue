@@ -113,6 +113,10 @@
   </AppLayout>
 </template>
 
+<!--
+  首页 - AI旅行规划助手的主页面
+  提供行程规划表单（目的地、日期、人数、预算），展示最近创建的行程列表
+-->
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -124,37 +128,47 @@ import AppLayout from '@/components/AppLayout.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 const tripsStore = useTripsStore()
+
+// 是否正在创建行程（控制按钮加载状态）
 const creating = ref(false)
+// 预算范围滑块的值，默认 2000 ~ 10000 元
 const budgetRange = ref([2000, 10000])
 
+// 行程表单数据模型
 const tripForm = reactive({
-  title: '',
-  destination: '',
-  startDate: null as string | null,
-  endDate: null as string | null,
-  travelers: 2,
+  title: '',           // 行程名称
+  destination: '',     // 目的地
+  startDate: null as string | null,  // 出发日期
+  endDate: null as string | null,    // 返回日期
+  travelers: 2,        // 出行人数，默认 2 人
 })
 
+/** 页面加载时获取用户信息和已有行程列表 */
 onMounted(() => {
   authStore.fetchUser()
   tripsStore.fetchTrips()
 })
 
+/** 跳转到指定行程的对话页面 */
 function goToChat(tripId: number) {
   router.push(`/chat/${tripId}`)
 }
 
+/** 开始规划：验证表单数据，创建行程，然后跳转到对话页面 */
 async function startPlanning() {
+  // 校验目的地是否已填写
   if (!tripForm.destination) {
     ElMessage.warning('请输入目的地')
     return
   }
+  // 如果未填写行程名称，自动生成
   if (!tripForm.title) {
     tripForm.title = `${tripForm.destination}之旅`
   }
 
   creating.value = true
   try {
+    // 调用 store 创建新行程
     const trip = await tripsStore.createTrip({
       title: tripForm.title,
       destination: tripForm.destination,
@@ -164,6 +178,7 @@ async function startPlanning() {
       budget: { min: budgetRange.value[0], max: budgetRange.value[1] },
     })
     ElMessage.success('行程已创建')
+    // 跳转到对话页面，同时携带目的地参数
     router.push(`/chat/${trip.id}?destination=${encodeURIComponent(tripForm.destination)}`)
   } catch {
     // 错误已在 api 拦截器中处理

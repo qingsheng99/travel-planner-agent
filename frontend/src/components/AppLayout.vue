@@ -19,7 +19,11 @@
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="logout">
+              <el-dropdown-item command="preferences">
+                <el-icon><Setting /></el-icon>
+                偏好设置
+              </el-dropdown-item>
+              <el-dropdown-item command="logout" divided>
                 <el-icon><SwitchButton /></el-icon>
                 退出登录
               </el-dropdown-item>
@@ -35,9 +39,15 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 应用全局布局组件
+ * 提供顶部导航栏（含返回按钮、Logo、导航菜单、用户下拉菜单）
+ * 和主体内容插槽。
+ */
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
+/** 是否显示返回按钮 */
 defineProps<{
   showBack?: boolean
 }>()
@@ -46,14 +56,25 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
+/**
+ * 判断当前路由是否与指定路径匹配，用于高亮导航项
+ * @param path - 目标路径
+ * @returns 是否匹配
+ */
 function isActive(path: string): boolean {
   return route.path === path
 }
 
+/**
+ * 处理下拉菜单命令
+ * @param command - 命令标识
+ */
 function handleCommand(command: string) {
   if (command === 'logout') {
-    authStore.logout()
-    router.push('/login')
+    authStore.logout() // 清除登录态
+    router.push('/login') // 跳转到登录页
+  } else if (command === 'preferences') {
+    router.push('/preferences') // 跳转到偏好设置页
   }
 }
 </script>

@@ -83,6 +83,10 @@
   </AppLayout>
 </template>
 
+<!--
+  行程列表页 - 展示用户所有已创建的行程
+  支持查看每个行程的详情、进入对话继续规划、查看已生成的行程安排
+-->
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -95,11 +99,13 @@ const router = useRouter()
 const authStore = useAuthStore()
 const tripsStore = useTripsStore()
 
+/** 页面加载时获取用户信息和所有行程列表 */
 onMounted(() => {
   authStore.fetchUser()
   tripsStore.fetchTrips()
 })
 
+/** 将日期格式化为 YYYY-MM-DD 格式 */
 function formatDate(date: string) {
   return dayjs(date).format('YYYY-MM-DD')
 }
