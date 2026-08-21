@@ -159,6 +159,33 @@ async def update_trip_status(
     return trip
 
 
+async def delete_trip(db: AsyncSession, trip_id: int, user_id: int) -> bool:
+    """删除属于指定用户的行程及其关联对话。
+
+    参数:
+        db: 异步数据库会话。
+        trip_id: 行程 ID。
+        user_id: 发起删除的用户 ID（用于校验行程归属）。
+
+    返回:
+        删除成功返回 True；行程不存在或无权访问返回 False。
+    """
+    trip = await get_owned_trip(db, trip_id, user_id)
+    if trip is None:
+        return False
+
+    # 先删除与该行程关联的对话记录，避免外键约束报错
+    conversation_result = await db.execute(
+        select(Conversation).where(Conversation.trip_id == trip_id)
+    )
+    for conversation in conversation_result.scalars().all():
+        await db.delete(conversation)
+
+    await db.delete(trip)
+    await db.commit()
+    return True
+
+
 async def add_conversation_message(db: AsyncSession, trip_id: int, message: Dict) -> Optional[Conversation]:
     """向指定行程的对话中添加一条消息。
 

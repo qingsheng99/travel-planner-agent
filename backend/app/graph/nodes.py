@@ -31,6 +31,34 @@ llm = ChatOpenAI(
 )
 
 
+async def _stream_llm(messages) -> str:
+    """流式调用 LLM 并聚合完整文本。
+
+    使用 astream 而非 ainvoke，使 astream_events 能够捕获
+    on_chat_model_stream 事件，从而向前端推送逐 token 的流式输出。
+
+    Args:
+        messages: 发送给 LLM 的消息列表。
+
+    Returns:
+        聚合后的完整回复文本。
+    """
+    parts: list[str] = []
+    async for chunk in llm.astream(messages):
+        text = getattr(chunk, "content", None)
+        if text is None:
+            text = str(chunk)
+        # 部分模型以内容块列表返回，需展开提取文本
+        if isinstance(text, list):
+            text = "".join(
+                b.get("text", "") if isinstance(b, dict) else str(b)
+                for b in text
+            )
+        if text:
+            parts.append(text)
+    return "".join(parts)
+
+
 async def intent_router(state: TravelState) -> TravelState:
     """意图分类节点：根据用户消息判断下一步操作。
 
@@ -60,9 +88,8 @@ async def intent_router(state: TravelState) -> TravelState:
     
     # 取最近 5 条消息进行意图判断
     messages = [SystemMessage(content=system_prompt)] + state["messages"][-5:]
-    # 调用 LLM 进行意图分类
-    response = await llm.ainvoke(messages)
-    next_step = response.content.strip().lower()
+    # 流式调用 LLM 进行意图分类（流式仅用于捕获 token 事件，此处聚合结果）
+    next_step = (await _stream_llm(messages)).strip().lower()
     
     # 校验分类结果，确保返回有效的下一步操作
     valid_next = ["weather", "flights", "hotels", "pois", "itinerary", "respond"]
@@ -161,7 +188,9 @@ async def pois_node(state: TravelState) -> TravelState:
 
     async def _fetch_knowledge() -> str:
         last_message = state["messages"][-1].content if state.get("messages") else ""
-        return await asyncio.to_thread(_retrieve_knowledge, last_message)
+        # _retrieve_knowledge 本身是异步协程且内部已用 to_thread 包装同步检索，
+        # 这里必须 await，否则会产生未 await 的协程导致 RAG 检索结果丢失。
+        return await _retrieve_knowledge(last_message)
 
     if state.get("destination"):
         pois = await _cached_tool("pois", state["destination"], _fetch_pois)
@@ -214,9 +243,8 @@ async def itinerary_node(state: TravelState) -> TravelState:
         SystemMessage(content=context),
     ] + state["messages"]
     
-    # 调用 LLM 生成行程规划
-    response = await llm.ainvoke(messages)
-    content = str(response.content)
+    # 流式调用 LLM 生成行程规划（逐 token 事件由 stream 层实时推送）
+    content = await _stream_llm(messages)
     return {
         "itinerary": {"content": content},
         "assistant_response": content,
@@ -239,14 +267,14 @@ async def response_node(state: TravelState) -> TravelState:
         "hotels": state.get("hotel_info"),
         "pois": state.get("poi_info"),
     }
-    response = await llm.ainvoke(
+    content = await _stream_llm(
         [
             SystemMessage(content=system_prompt),
             SystemMessage(content=f"旅行上下文：{context}"),
             *state.get("messages", []),
         ]
     )
-    return {"assistant_response": str(response.content), "next": "finish"}
+    return {"assistant_response": content, "next": "finish"}
 
 
 async def _retrieve_knowledge(query: str) -> str:

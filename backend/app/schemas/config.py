@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     MAPS_API_KEY: Optional[str] = None
     FLIGHTS_API_KEY: Optional[str] = None
     HOTELS_API_KEY: Optional[str] = None
+    # 高德地图 Web 服务 key（国内替代 Google Places，用于景点/酒店 POI 查询）
+    AMAP_API_KEY: Optional[str] = None
+    # RollingGo MCP key（酒店查询真实数据源；申请地址 https://rollinggo.store/apply）
+    ROLLINGGO_API_KEY: Optional[str] = None
+    # SerpApi Google Flights key（航班查询真实数据源；免费额度，注册 https://serpapi.com）
+    SERPAPI_API_KEY: Optional[str] = None
 
     # ── CORS ─────────────────────────────────────────
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]

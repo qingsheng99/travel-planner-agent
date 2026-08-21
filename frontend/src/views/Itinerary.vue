@@ -47,9 +47,46 @@
 
           <el-card class="itinerary-card" v-if="trip.itinerary?.content">
             <template #header>
-              <span class="section-title">📋 行程安排</span>
+              <div class="itinerary-header">
+                <span class="section-title">📋 行程安排</span>
+                <el-radio-group v-model="viewMode" size="small">
+                  <el-radio-button value="timeline">📅 图形视图</el-radio-button>
+                  <el-radio-button value="text">📄 文本视图</el-radio-button>
+                </el-radio-group>
+              </div>
             </template>
-            <div class="content-text" v-html="formatItinerary(trip.itinerary.content)"></div>
+
+            <!-- 图形视图：按每日行程渲染时间轴 -->
+            <el-timeline v-if="viewMode === 'timeline' && timelineDays.length">
+              <el-timeline-item
+                v-for="(day, idx) in timelineDays"
+                :key="idx"
+                :timestamp="day.title"
+                placement="top"
+                :type="timelineType(idx)"
+                :hollow="false"
+                size="large"
+              >
+                <div class="day-card">
+                  <div class="day-theme" v-if="day.theme">
+                    <el-tag size="small" effect="plain">{{ day.theme }}</el-tag>
+                  </div>
+                  <div class="day-items">
+                    <div
+                      v-for="(item, i) in day.items"
+                      :key="i"
+                      class="day-item"
+                    >
+                      <span class="item-dot"></span>
+                      <span>{{ item }}</span>
+                    </div>
+                  </div>
+                </div>
+              </el-timeline-item>
+            </el-timeline>
+
+            <!-- 文本视图：保留原有富文本渲染 -->
+            <div v-else class="content-text" v-html="formatItinerary(trip.itinerary.content)"></div>
           </el-card>
 
           <el-empty
@@ -128,6 +165,8 @@ const loading = ref(true)
 const loadError = ref(false)
 // 当前行程数据
 const trip = ref<Trip | null>(null)
+// 行程展示模式：时间轴图形视图 / 文本视图
+const viewMode = ref<'timeline' | 'text'>('timeline')
 
 // 城市坐标映射表，用于在地图上定位目的地
 const cityCoordinates: Record<string, [number, number]> = {
@@ -159,6 +198,49 @@ const mapMarkers = computed(() => {
     ? [{ name: trip.value.destination, lat: mapCenter.value[0], lng: mapCenter.value[1] }]
     : []
 })
+
+/** 解析 Markdown 行程内容为每日时间轴数据（结构化的每日安排） */
+function parseTimeline(content: string) {
+  const lines = content.split('\n')
+  const days: { title: string; theme: string; items: string[] }[] = []
+  // 匹配表格行：第 1 列为 Day n / 第 1天，第 2 列为主题，其后为安排列表
+  const rowRe = /^\s*\|\s*(Day\s*\d+|第\s*\d+\s*天)\s*\|\s*([^|]*?)\s*\|(.*)\|\s*$/
+
+  for (const line of lines) {
+    const match = line.match(rowRe)
+    if (!match) continue
+    // 跳过表头分隔行（---）
+    if (/^--+$/.test(match[2])) continue
+
+    const dayLabel = match[1].trim() // 如 Day 1 / 第1天
+    const theme = match[2].trim() // 当天主题
+    // 安排列：拆分箭头（→）或顿号分隔的要点
+    const raw = match[3].trim()
+    const rawItems = raw
+      .split(/[→,，;；]/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && !/^--+$/.test(s))
+    const items = rawItems.slice(0, 8) // 每天最多展示 8 项
+
+    if (items.length) {
+      days.push({ title: dayLabel, theme, items })
+    }
+  }
+  return days
+}
+
+/** 计算属性：将行程 Markdown 解析为时间轴数据 */
+const timelineDays = computed(() => {
+  const content = trip.value?.itinerary?.content
+  if (!content) return []
+  return parseTimeline(content)
+})
+
+/** 根据天数序号返回时间轴节点颜色（循环使用） */
+function timelineType(idx: number) {
+  const colors = ['primary', 'success', 'warning', 'danger', 'info'] as const
+  return colors[idx % colors.length]
+}
 
 /** 加载行程数据 */
 async function loadTrip() {
@@ -260,6 +342,52 @@ async function handleCopyContent() {
   font-size: 16px;
   font-weight: 600;
   color: #333;
+}
+
+.itinerary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.day-card {
+  background: #fafbfe;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid #eef0f6;
+  transition: box-shadow 0.2s;
+}
+
+.day-card:hover {
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.12);
+}
+
+.day-theme {
+  margin-bottom: 10px;
+}
+
+.day-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.day-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #555;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.item-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #667eea;
+  flex-shrink: 0;
+  margin-top: 7px;
 }
 
 .itinerary-card {

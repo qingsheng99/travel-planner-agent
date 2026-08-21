@@ -82,6 +82,18 @@ export const useTripsStore = defineStore('trips', () => {
     return response.data
   }
 
+  /**
+   * 删除行程及其关联对话
+   * @param tripId - 行程 ID
+   */
+  async function deleteTrip(tripId: number) {
+    await api.delete(`/trips/${tripId}`)
+    trips.value = trips.value.filter((t) => t.id !== tripId) // 从本地列表移除
+    if (currentTrip.value?.id === tripId) {
+      currentTrip.value = null // 若删除的是当前行程则清空
+    }
+  }
+
   return {
     trips,
     currentTrip,
@@ -90,5 +102,6 @@ export const useTripsStore = defineStore('trips', () => {
     fetchTrip,
     createTrip,
     saveItinerary,
+    deleteTrip,
   }
 })

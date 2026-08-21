@@ -17,6 +17,7 @@ from app.services.itinerary import (
     create_trip,
     get_owned_trip,
     get_user_trips,
+    delete_trip,
     update_trip_itinerary,
     update_trip_status,
     VALID_TRIP_STATUSES,
@@ -236,3 +237,39 @@ async def save_itinerary(
         user_agent=request.headers.get("user-agent"),
     )
     return updated_trip
+
+
+@router.delete("/{trip_id}", status_code=204)
+async def remove_trip(
+    trip_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """删除指定行程及其关联对话。
+
+    校验行程归属后删除，并写入一条删除行程的审计日志。
+
+    Args:
+        trip_id: 行程 ID（路径参数）。
+        request: 当前 HTTP 请求（用于记录审计日志）。
+        db: 异步数据库会话（依赖注入）。
+        current_user: 当前登录用户（依赖注入）。
+
+    Raises:
+        HTTPException 404: 行程不存在。
+        HTTPException 403: 无权删除该行程。
+    """
+    deleted = await delete_trip(db, trip_id, current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    await write_audit_log(
+        db=db,
+        action="delete_trip",
+        user_id=current_user.id,
+        resource_type="trip",
+        resource_id=trip_id,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )

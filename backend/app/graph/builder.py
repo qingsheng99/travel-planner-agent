@@ -39,7 +39,7 @@ def build_travel_graph():
     workflow.add_node("flights", flights_node)          # 航班查询
     workflow.add_node("hotels", hotels_node)            # 酒店查询
     workflow.add_node("pois", pois_node)                # 景点查询
-    workflow.add_node("itinerary", itinerary_node)      # 行程生成
+    workflow.add_node("plan", itinerary_node)        # 行程生成
     workflow.add_node("respond", response_node)         # 通用自然语言回复
     
     # 设置入口节点为意图分类器
@@ -54,7 +54,7 @@ def build_travel_graph():
             "flights": "flights",    # 路由到航班节点
             "hotels": "hotels",      # 路由到酒店节点
             "pois": "pois",          # 路由到景点节点
-            "itinerary": "itinerary",# 路由到行程节点
+            "plan": "plan",            # 路由到行程生成节点
             "respond": "respond",    # 直接回复
             "end": END               # 结束工作流
         }
@@ -67,7 +67,7 @@ def build_travel_graph():
     workflow.add_edge("pois", "respond")
     workflow.add_edge("respond", END)
     # 行程生成完成后直接结束
-    workflow.add_edge("itinerary", END)
+    workflow.add_edge("plan", END)
     
     # 编译图为可执行实例
     return workflow.compile()

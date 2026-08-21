@@ -32,7 +32,7 @@ def supervisor(state: TravelState) -> str:
         "flights": "flights",      # 查询航班
         "hotels": "hotels",        # 查询酒店
         "pois": "pois",            # 查询景点
-        "itinerary": "itinerary",  # 生成行程
+        "itinerary": "plan",       # 生成行程
         "respond": "respond",      # 直接回复
         "finish": "end"            # 结束流程
     }

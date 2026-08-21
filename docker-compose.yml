@@ -56,6 +56,14 @@ services:
       - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-small-zh-v1.5}
       - CHROMA_PERSIST_DIRECTORY=/app/data/chromadb
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      # 第三方数据源 key（国内可直连的高德等）
+      - WEATHER_API_KEY=${WEATHER_API_KEY:-}
+      - MAPS_API_KEY=${MAPS_API_KEY:-}
+      - FLIGHTS_API_KEY=${FLIGHTS_API_KEY:-}
+      - HOTELS_API_KEY=${HOTELS_API_KEY:-}
+      - AMAP_API_KEY=${AMAP_API_KEY:-}
+      - ROLLINGGO_API_KEY=${ROLLINGGO_API_KEY:-}
+      - SERPAPI_API_KEY=${SERPAPI_API_KEY:-}
     volumes:
       - ./backend:/app
       - ./data:/app/data

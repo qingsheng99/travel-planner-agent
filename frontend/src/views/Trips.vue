@@ -75,6 +75,15 @@
               >
                 查看行程
               </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                plain
+                @click="handleDelete(trip)"
+              >
+                <el-icon><Delete /></el-icon>
+                删除
+              </el-button>
             </div>
           </el-card>
         </el-col>
@@ -90,6 +99,8 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Delete, Plus, Location, Calendar, User, Money } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTripsStore } from '@/stores/trips'
 import AppLayout from '@/components/AppLayout.vue'
@@ -108,6 +119,31 @@ onMounted(() => {
 /** 将日期格式化为 YYYY-MM-DD 格式 */
 function formatDate(date: string) {
   return dayjs(date).format('YYYY-MM-DD')
+}
+
+/** 删除行程：弹出确认框，确认后调用接口并刷新列表 */
+async function handleDelete(trip: any) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除行程「${trip.title}」吗？删除后不可恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger',
+      },
+    )
+  } catch {
+    return // 用户取消删除，直接返回
+  }
+
+  try {
+    await tripsStore.deleteTrip(trip.id)
+    ElMessage.success('行程已删除')
+  } catch {
+    // 错误提示已由响应拦截器统一处理
+  }
 }
 </script>
 

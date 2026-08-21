@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 # 流式输出时，只有这些节点（产出最终用户回复）的 token 会被推送
-FINAL_RESPONSE_NODES = {"itinerary", "respond"}
+FINAL_RESPONSE_NODES = {"plan", "respond"}
 
 # 工具节点文本标签，用于 tool_start / tool_end 事件展示给前端
 TOOL_LABELS = {
@@ -43,7 +43,7 @@ TOOL_LABELS = {
     "flights": "查询航班",
     "hotels": "查询酒店",
     "pois": "查询景点",
-    "itinerary": "生成行程",
+    "plan": "生成行程",
     "respond": "生成回复",
 }
 
